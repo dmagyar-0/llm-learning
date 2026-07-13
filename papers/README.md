@@ -29,7 +29,7 @@ Status: ☐ listed → ◐ skimmed → ● studied (has a reading note)
 
 | St | Paper | Year | arXiv |
 |----|-------|------|-------|
-| ☐ | **Attention Is All You Need** — Vaswani et al. | 2017 | [1706.03762](https://arxiv.org/abs/1706.03762) |
+| ● | **Attention Is All You Need** — Vaswani et al. ([notes](attention.md)) | 2017 | [1706.03762](https://arxiv.org/abs/1706.03762) |
 
 ## Phase 2 — GPT-2 / decoder-only
 

@@ -94,8 +94,9 @@ tests/               ← pytest tests; each is also a usage example
 
 ## Current status
 
-- [x] Project scaffolding, vision, roadmap, timeline (this commit)
-- [ ] Phase 1 begins: scaled dot-product attention — first code session
+- [x] Project scaffolding, vision, roadmap, timeline
+- [x] Lesson 01: scaled dot-product attention (`lessons/01-*.md`)
+- [ ] Lesson 02: multi-head attention (why many heads; the Q/K/V projections)
 - See `docs/ROADMAP.md` for the full plan and `lessons/` for progress.
 
 ## Conventions

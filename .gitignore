@@ -1,0 +1,22 @@
+# downloaded literature (see papers/README.md — we don't redistribute PDFs)
+papers/pdfs/
+
+# python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+build/
+dist/
+
+# training artifacts
+checkpoints/
+runs/
+data/raw/
+*.pt
+*.ckpt
+
+# editors/os
+.idea/
+.vscode/
+.DS_Store

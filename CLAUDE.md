@@ -96,7 +96,8 @@ tests/               ← pytest tests; each is also a usage example
 
 - [x] Project scaffolding, vision, roadmap, timeline
 - [x] Lesson 01: scaled dot-product attention (`lessons/01-*.md`)
-- [ ] Lesson 02: multi-head attention (why many heads; the Q/K/V projections)
+- [x] Lesson 02: multi-head attention (`lessons/02-*.md`)
+- [ ] Lesson 03: position-wise FFN, residual connections, LayerNorm (post-norm)
 - See `docs/ROADMAP.md` for the full plan and `lessons/` for progress.
 
 ## Conventions

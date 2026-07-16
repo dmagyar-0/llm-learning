@@ -29,7 +29,9 @@ Status: ☐ listed → ◐ skimmed → ● studied (has a reading note)
 
 | St | Paper | Year | arXiv |
 |----|-------|------|-------|
-| ● | **Attention Is All You Need** — Vaswani et al. ([notes](attention.md)) | 2017 | [1706.03762](https://arxiv.org/abs/1706.03762) |
+| ● | **Attention Is All You Need** — Vaswani et al. ([notes](attention.md) · [§3.5 positions](positional-encodings.md)) | 2017 | [1706.03762](https://arxiv.org/abs/1706.03762) |
+| ◐ | Convolutional Sequence to Sequence Learning (learned positions) — Gehring et al. ([notes](positional-encodings.md)) | 2017 | [1705.03122](https://arxiv.org/abs/1705.03122) |
+| ☐ | Self-Attention with Relative Position Representations — Shaw et al. | 2018 | [1803.02155](https://arxiv.org/abs/1803.02155) |
 
 ## Phase 2 — GPT-2 / decoder-only
 

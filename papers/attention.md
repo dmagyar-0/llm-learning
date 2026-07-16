@@ -43,6 +43,29 @@ Consequences of deleting recurrence:
   **order-blind** without positional information. Both problems spawn whole
   research areas we'll meet later (FlashAttention, sliding windows, RoPE...).
 
+## Study notes: multi-head attention (§3.2.2) — for lesson 02
+
+- The paper's one-liner: *"Multi-head attention allows the model to jointly attend
+  to information from different representation subspaces at different positions.
+  With a single attention head, averaging inhibits this."* The key word is
+  **averaging**: one head produces ONE weight distribution per query, so if a token
+  needs to look at two different places for two different reasons, a single head
+  must blur them into one mixture.
+- The fix is *not* to run h copies of full-width attention (that would be h× the
+  compute). Instead each head works in a **projected-down subspace**:
+  d_k = d_v = d_model / h (512/8 = 64 in the paper). Total cost stays ≈ the cost
+  of one full-width head; §3.2.2 says this explicitly.
+- The learned projections W_i^Q, W_i^K, W_i^V are what make heads *different* from
+  each other — each head gets its own learned "lens" on the same input. Concat +
+  W^O then recombines the h answers into one d_model vector.
+- Ablation (Table 3, rows (A)): 1 head is 0.9 BLEU worse than 8; but 32 heads is
+  also worse than 8 — more heads means narrower heads (d_k = 16), and each head
+  becomes too low-dimensional to compute sharp similarities. Heads are a
+  trade-off, not a free lunch.
+- Aged well: every modern LLM is multi-head. Aged with modification: MQA/GQA
+  (Phase 4) later observed that *keys and values* don't need one set per head —
+  only queries do — which slashes inference memory.
+
 ## Results that made people care
 
 - New SOTA on WMT14 En→De (28.4 BLEU) and En→Fr — with **an order of magnitude

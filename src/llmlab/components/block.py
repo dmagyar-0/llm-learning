@@ -1,0 +1,88 @@
+"""The transformer block: attention + FFN, glued by residuals and norms.
+
+Lesson 03: the 2017 paper's sublayer formula (§3.1, §5.4 — "post-norm"):
+
+    x = LayerNorm(x + Sublayer(x))        applied twice per block:
+                                          Sublayer = multi-head attention,
+                                          then Sublayer = position-wise FFN
+
+The residual addition `x + Sublayer(x)` is ResNet's idea (He et al. 2015)
+transplanted: a sublayer doesn't *replace* the representation, it computes a
+*correction* to add onto it. Two consequences:
+
+1. **Optimization.** ∂(x + F(x))/∂x = I + ∂F/∂x — the gradient always has a
+   direct identity path back to earlier layers. Through L blocks the gradient
+   contains an unattenuated term instead of being a product of L Jacobians
+   that shrinks geometrically. This is the vanishing-gradient disease that
+   killed RNNs over *time*, showing up over *depth* — cured the same way:
+   give the signal a highway. (Test: healthy gradient through 8 stacked
+   blocks — measured with a proper loss; see the amusing trap in the test
+   about why `output.sum()` is NOT a proper loss after a LayerNorm.)
+
+2. **The residual-stream picture.** Because every block only *adds*, the
+   d_model-wide vector flowing through the network acts like a shared
+   workspace: attention writes in what it gathered from other tokens, the FFN
+   writes in what it computed from that, and every later layer can read
+   everything earlier layers wrote. This framing — blocks as readers/writers
+   on a stream — is how interpretability work talks about transformers today.
+
+Residual addition also explains a design constraint from lesson 02: every
+sublayer must map d_model → d_model, or `x + Sublayer(x)` wouldn't typecheck.
+That's why attention ends in W_O and the FFN contracts back down.
+
+Note the placement: the paper normalizes AFTER the addition ("post-norm"),
+so the highway itself passes through LN at every block. This trains — but
+deep post-norm stacks famously need learning-rate warmup, because early in
+training the LN-scrambled highway isn't yet a clean identity. GPT-2 (Phase 2)
+moves the norm inside the branch — `x = x + Sublayer(LayerNorm(x))`,
+"pre-norm" — restoring the untouched highway; that one-line change is a big
+part of why 100-layer models train. We implement 2017 faithfully first, and
+`norm_placement` becomes a config knob when we assemble models.
+"""
+
+from torch import Tensor, nn
+
+from llmlab.components.attention import MultiHeadAttention
+from llmlab.components.ffn import PositionwiseFFN
+from llmlab.components.norms import LayerNorm
+
+
+class TransformerBlock(nn.Module):
+    """One post-norm encoder-style block (Vaswani et al. 2017).
+
+    dropout: the paper applies dropout to each sublayer's output *before* the
+    residual addition (§5.4, p_drop=0.1). Default 0.0 here — it only matters
+    once we train (lesson 06); tests want determinism.
+    """
+
+    def __init__(
+        self,
+        d_model: int,
+        num_heads: int,
+        d_ff: int | None = None,
+        dropout: float = 0.0,
+    ) -> None:
+        super().__init__()
+        self.attention = MultiHeadAttention(d_model, num_heads)
+        self.ffn = PositionwiseFFN(d_model, d_ff)
+        # One LayerNorm per sublayer, each with its own γ/β — the stream may
+        # need different operating points after "gather" vs. after "think".
+        self.norm_attn = LayerNorm(d_model)
+        self.norm_ffn = LayerNorm(d_model)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x: Tensor, mask: Tensor | None = None) -> Tensor:
+        """x: (batch, seq, d_model) → (batch, seq, d_model).
+
+        Shape in == shape out is the whole point: blocks stack like Lego,
+        and depth becomes a pure hyperparameter (N=6 in the paper).
+        """
+        # Sublayer 1 — gather: each token reads from the others.
+        attn_out, _ = self.attention(x, mask=mask)     # (batch, seq, d_model)
+        x = self.norm_attn(x + self.dropout(attn_out))  # add THEN norm: post-norm
+
+        # Sublayer 2 — think: each token processes what it now holds.
+        ffn_out = self.ffn(x)                           # (batch, seq, d_model)
+        x = self.norm_ffn(x + self.dropout(ffn_out))
+
+        return x

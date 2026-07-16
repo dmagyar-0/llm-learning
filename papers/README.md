@@ -22,8 +22,8 @@ Status: ☐ listed → ◐ skimmed → ● studied (has a reading note)
 | ☐ | Efficient Estimation of Word Representations (word2vec) — Mikolov et al. | 2013 | [1301.3781](https://arxiv.org/abs/1301.3781) |
 | ☐ | Sequence to Sequence Learning with Neural Networks — Sutskever et al. | 2014 | [1409.3215](https://arxiv.org/abs/1409.3215) |
 | ☐ | Neural Machine Translation by Jointly Learning to Align and Translate — Bahdanau et al. | 2014 | [1409.0473](https://arxiv.org/abs/1409.0473) |
-| ☐ | Deep Residual Learning for Image Recognition — He et al. | 2015 | [1512.03385](https://arxiv.org/abs/1512.03385) |
-| ☐ | Layer Normalization — Ba, Kiros, Hinton | 2016 | [1607.06450](https://arxiv.org/abs/1607.06450) |
+| ● | Deep Residual Learning for Image Recognition — He et al. ([notes](residuals-layernorm.md)) | 2015 | [1512.03385](https://arxiv.org/abs/1512.03385) |
+| ● | Layer Normalization — Ba, Kiros, Hinton ([notes](residuals-layernorm.md)) | 2016 | [1607.06450](https://arxiv.org/abs/1607.06450) |
 
 ## Phase 1 — The Transformer
 

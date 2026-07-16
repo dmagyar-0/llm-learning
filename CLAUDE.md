@@ -98,7 +98,8 @@ tests/               ← pytest tests; each is also a usage example
 - [x] Lesson 01: scaled dot-product attention (`lessons/01-*.md`)
 - [x] Lesson 02: multi-head attention (`lessons/02-*.md`)
 - [x] Lesson 03: position-wise FFN, residuals, LayerNorm (`lessons/03-*.md`)
-- [ ] Lesson 04: sinusoidal positional encodings
+- [x] Lesson 04: sinusoidal positional encodings (`lessons/04-*.md`)
+- [ ] Lesson 05: causal masking (decoder side) and padding masks
 - See `docs/ROADMAP.md` for the full plan and `lessons/` for progress.
 
 ## Conventions

@@ -15,6 +15,8 @@ bahdanau-attention|https://arxiv.org/pdf/1409.0473
 resnet|https://arxiv.org/pdf/1512.03385
 layernorm|https://arxiv.org/pdf/1607.06450
 attention|https://arxiv.org/pdf/1706.03762
+convs2s|https://arxiv.org/pdf/1705.03122
+relative-positions|https://arxiv.org/pdf/1803.02155
 gpt1|https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf
 gpt2|https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf
 bpe|https://arxiv.org/pdf/1508.07909

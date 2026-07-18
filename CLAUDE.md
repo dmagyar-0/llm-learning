@@ -101,7 +101,8 @@ tests/               ← pytest tests; each is also a usage example
 - [x] Lesson 04: sinusoidal positional encodings (`lessons/04-*.md`)
 - [x] Lesson 05: causal and padding masks (`lessons/05-*.md`)
 - [x] Lesson 06: full encoder–decoder assembly (`lessons/06-*.md`)
-- [ ] Lesson 07: training loop + toy copy/reverse task (loss masking, teacher forcing)
+- [x] Lesson 07: training loop + toy copy/reverse task (loss masking, teacher forcing) (`lessons/07-*.md`)
+- [ ] Lesson 08: autoregressive generation (greedy decoding, exposure bias) — closes Phase 1
 - See `docs/ROADMAP.md` for the full plan and `lessons/` for progress.
 
 ## Conventions

@@ -12,6 +12,7 @@ PAPERS="
 word2vec|https://arxiv.org/pdf/1301.3781
 seq2seq|https://arxiv.org/pdf/1409.3215
 bahdanau-attention|https://arxiv.org/pdf/1409.0473
+adam|https://arxiv.org/pdf/1412.6980
 resnet|https://arxiv.org/pdf/1512.03385
 layernorm|https://arxiv.org/pdf/1607.06450
 attention|https://arxiv.org/pdf/1706.03762

@@ -15,6 +15,7 @@ deeply in the roadmap.
 | 2013 | word2vec (Google) | open | Words as vectors; meaning as geometry ★ |
 | 2014 | seq2seq (Google) | paper | Encoder–decoder for translation; fixed-vector bottleneck ★ |
 | 2014 | Bahdanau attention | paper | Attention invented — as a *patch* for the bottleneck ★ |
+| 2014 | Adam optimizer | paper | Per-parameter adaptive steps; (as AdamW) still training every LLM today ★ |
 | 2015 | ResNet (MSR) | open | Residual connections — quietly load-bearing in every transformer ★ |
 | 2016 | LayerNorm | paper | The normalization transformers would adopt ★ |
 

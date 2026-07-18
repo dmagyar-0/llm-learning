@@ -86,3 +86,77 @@ class TransformerBlock(nn.Module):
         x = self.norm_ffn(x + self.dropout(ffn_out))
 
         return x
+
+
+class DecoderBlock(nn.Module):
+    """One post-norm decoder block (Vaswani et al. 2017, §3.1, Figure 1 right).
+
+    Lesson 06: the decoder block is the encoder block with a THIRD sublayer
+    wedged in — **cross-attention** — giving three steps per block:
+
+        1. causal self-attention   "what have I generated so far?"
+        2. cross-attention         "what does the source say?"
+        3. FFN                     "think about both."
+
+    Cross-attention is where lesson 02's `x_context` argument finally earns
+    its keep: queries come from the decoder stream, but keys AND values come
+    from the encoder's output (`memory`). It is the ONLY bridge between the
+    two stacks — and it is Bahdanau 2014's encoder–decoder attention reborn:
+    each target position learns which source positions to consult. Note that
+    `memory` is the encoder's FINAL output, fed identically to every decoder
+    block — decoder depth means re-*querying* the source repeatedly, not
+    processing it further.
+
+    Mask bookkeeping (each attention gets a different one — the classic
+    source of silent decoder bugs):
+
+        self-attention  → causal ∧ target-padding   (lesson 05's combination)
+        cross-attention → source-padding ONLY — no triangle. The causal mask
+          hides the future of the sequence being GENERATED; the source is
+          fully known before generation begins, so there is no future to
+          hide — only pad keys to skip. (Lesson 05's open question, answered:
+          masks encode availability, and the whole source is available.)
+    """
+
+    def __init__(
+        self,
+        d_model: int,
+        num_heads: int,
+        d_ff: int | None = None,
+        dropout: float = 0.0,
+    ) -> None:
+        super().__init__()
+        self.self_attention = MultiHeadAttention(d_model, num_heads)
+        self.cross_attention = MultiHeadAttention(d_model, num_heads)
+        self.ffn = PositionwiseFFN(d_model, d_ff)
+        # Three sublayers → three residual+norm wrappers, each with its own
+        # γ/β (same reasoning as the encoder block: different operating
+        # points after each step).
+        self.norm_self = LayerNorm(d_model)
+        self.norm_cross = LayerNorm(d_model)
+        self.norm_ffn = LayerNorm(d_model)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(
+        self,
+        x: Tensor,                 # (batch, tgt_seq, d_model) decoder stream
+        memory: Tensor,            # (batch, src_seq, d_model) encoder output
+        self_mask: Tensor | None = None,   # causal ∧ tgt-padding
+        cross_mask: Tensor | None = None,  # src-padding (no triangle!)
+    ) -> Tensor:
+        """(batch, tgt_seq, d_model) → same shape; blocks stack like Lego."""
+        # 1 — gather from the past of the target sequence.
+        attn_out, _ = self.self_attention(x, mask=self_mask)
+        x = self.norm_self(x + self.dropout(attn_out))
+
+        # 2 — gather from the source: Q from x, K/V from memory. Output
+        # length follows the QUERIES (tgt_seq) — lesson 01's shapes at work:
+        # (tgt_seq, src_seq) weights @ (src_seq, d_v) values → tgt_seq rows.
+        cross_out, _ = self.cross_attention(x, x_context=memory, mask=cross_mask)
+        x = self.norm_cross(x + self.dropout(cross_out))
+
+        # 3 — think.
+        ffn_out = self.ffn(x)
+        x = self.norm_ffn(x + self.dropout(ffn_out))
+
+        return x

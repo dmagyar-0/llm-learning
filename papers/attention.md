@@ -104,6 +104,46 @@ Consequences of deleting recurrence:
   band mask, Mistral Phase 5; FlashAttention never materializes the matrix
   at all but respects the same triangle).
 
+## Study notes: the full architecture (§3.1, Figure 1) — for lesson 06
+
+- The machine is two stacks. The **encoder** (N=6 blocks) reads the whole
+  source sentence bidirectionally — every position attends every position,
+  because the source is *given*, not generated; there is nothing to hide. The
+  **decoder** (N=6 blocks) generates the target left-to-right behind lesson
+  05's causal mask.
+- **The decoder block has a third sublayer** wedged between causal
+  self-attention and the FFN: **cross-attention**, where queries come from the
+  decoder stream but keys AND values come from the encoder's final output
+  ("memory"). This is Bahdanau 2014's encoder–decoder attention, reborn inside
+  the transformer — the only bridge between the two stacks. Note what travels:
+  the encoder's output enters *every* decoder block (as K/V), not just the
+  first one.
+- A useful reading of the decoder block's three steps: (1) causal self-attn —
+  "what have I said so far?", (2) cross-attn — "what does the source say?",
+  (3) FFN — "think about both."
+- **Mask bookkeeping** (the paper leaves this implicit; every implementation
+  must get it right): encoder self-attn → source padding mask only; decoder
+  self-attn → causal ∧ target padding; cross-attn → **source padding only, no
+  triangle**. Why no triangle: the causal mask hides the *future of the
+  sequence being generated*. The source is fully known before generation
+  begins — for cross-attention there is no future to hide, only padding to
+  skip. (Lesson 05's open question, answered.)
+- **Embedding scale** (§3.4): token embeddings are multiplied by √d_model
+  before the positional encoding is added. The paper ties the embedding matrix
+  to the pre-softmax projection (shared weights want linear-layer-scale init,
+  ~1/√d_model per component, giving embedding vectors norm ≈ 1) while the
+  sinusoidal PE has norm √(d_model/2) — unscaled, position would shout and
+  content would whisper. ×√d_model restores the balance.
+- The paper also shares one weight matrix between both embedding layers and
+  the pre-softmax linear (§3.4, citing Press & Wolf 2016). We keep ours
+  untied for now and make weight tying its own lesson in Phase 2 — where
+  GPT-2 makes it standard.
+- Aged well: the block wiring (residuals around every sublayer, norm at every
+  step) — unchanged since. Aged badly: the encoder–decoder *split itself*.
+  GPT (Phase 2) keeps only the decoder minus cross-attention, and nearly every
+  modern LLM follows; the encoder–decoder shape survives mainly in translation
+  and in T5-style models (Phase 3).
+
 ## Results that made people care
 
 - New SOTA on WMT14 En→De (28.4 BLEU) and En→Fr — with **an order of magnitude

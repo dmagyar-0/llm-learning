@@ -99,7 +99,9 @@ tests/               ← pytest tests; each is also a usage example
 - [x] Lesson 02: multi-head attention (`lessons/02-*.md`)
 - [x] Lesson 03: position-wise FFN, residuals, LayerNorm (`lessons/03-*.md`)
 - [x] Lesson 04: sinusoidal positional encodings (`lessons/04-*.md`)
-- [ ] Lesson 05: causal masking (decoder side) and padding masks
+- [x] Lesson 05: causal and padding masks (`lessons/05-*.md`)
+- [x] Lesson 06: full encoder–decoder assembly (`lessons/06-*.md`)
+- [ ] Lesson 07: training loop + toy copy/reverse task (loss masking, teacher forcing)
 - See `docs/ROADMAP.md` for the full plan and `lessons/` for progress.
 
 ## Conventions

@@ -22,6 +22,7 @@ Status: ☐ listed → ◐ skimmed → ● studied (has a reading note)
 | ☐ | Efficient Estimation of Word Representations (word2vec) — Mikolov et al. | 2013 | [1301.3781](https://arxiv.org/abs/1301.3781) |
 | ☐ | Sequence to Sequence Learning with Neural Networks — Sutskever et al. | 2014 | [1409.3215](https://arxiv.org/abs/1409.3215) |
 | ☐ | Neural Machine Translation by Jointly Learning to Align and Translate — Bahdanau et al. | 2014 | [1409.0473](https://arxiv.org/abs/1409.0473) |
+| ● | Adam: A Method for Stochastic Optimization — Kingma & Ba ([notes](training.md)) | 2014 | [1412.6980](https://arxiv.org/abs/1412.6980) |
 | ● | Deep Residual Learning for Image Recognition — He et al. ([notes](residuals-layernorm.md)) | 2015 | [1512.03385](https://arxiv.org/abs/1512.03385) |
 | ● | Layer Normalization — Ba, Kiros, Hinton ([notes](residuals-layernorm.md)) | 2016 | [1607.06450](https://arxiv.org/abs/1607.06450) |
 
@@ -29,7 +30,7 @@ Status: ☐ listed → ◐ skimmed → ● studied (has a reading note)
 
 | St | Paper | Year | arXiv |
 |----|-------|------|-------|
-| ● | **Attention Is All You Need** — Vaswani et al. ([notes](attention.md) · [§3.5 positions](positional-encodings.md)) | 2017 | [1706.03762](https://arxiv.org/abs/1706.03762) |
+| ● | **Attention Is All You Need** — Vaswani et al. ([notes](attention.md) · [§3.5 positions](positional-encodings.md) · [§5 training](training.md)) | 2017 | [1706.03762](https://arxiv.org/abs/1706.03762) |
 | ◐ | Convolutional Sequence to Sequence Learning (learned positions) — Gehring et al. ([notes](positional-encodings.md)) | 2017 | [1705.03122](https://arxiv.org/abs/1705.03122) |
 | ☐ | Self-Attention with Relative Position Representations — Shaw et al. | 2018 | [1803.02155](https://arxiv.org/abs/1803.02155) |
 

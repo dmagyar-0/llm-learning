@@ -33,6 +33,7 @@ The core of everything that follows. Built piece by piece, one session each:
 4. 🔧 Sinusoidal positional encodings
 5. 🔧 Causal masking (decoder side) and padding masks
 6. 🔧 Full encoder–decoder assembly; train on a toy copy/reverse task on CPU
+7. 🔧 Autoregressive generation (greedy decoding); exposure bias, the O(n²) cost that motivates the KV cache — closes Phase 1
 
 - 📄 Attention Is All You Need — Vaswani et al. 2017
 - 📄 Layer Normalization — Ba et al. 2016

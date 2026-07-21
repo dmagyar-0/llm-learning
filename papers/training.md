@@ -110,7 +110,11 @@ its own story (Xiong et al. 2020).
 - **Still open:** exposure bias. Teacher forcing trains a next-token predictor
   on gold prefixes and hopes it survives its own prefixes at inference. That
   gap is the seed of both sampling tricks (Phase 2) and RL post-training
-  (Phases 7–8).
+  (Phases 7–8). Lesson 08 makes it *measurable* — `teacher_forced_accuracy`
+  (gold prefix) vs. `free_running_accuracy` (own prefix, via
+  `Transformer.greedy_decode`); on the toy tasks the model is near-perfect so
+  the gap is tiny, but the two metrics are now in place to watch it widen with
+  scale and sequence length.
 
 ## What we take into the implementation
 

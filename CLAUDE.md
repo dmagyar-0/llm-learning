@@ -45,6 +45,12 @@ These rules override default coding behavior:
 - **No magic dependencies.** PyTorch, numpy, pytest, and (for data/tokenizers when
   we get there) minimal extras. We implement the interesting parts ourselves —
   including BPE tokenization when we reach GPT-2.
+- **Show the files inline, always.** The user reads on mobile, so at the end of
+  every session **display the session's lesson note (`.md`) and the new/changed
+  code (`.py`) directly in the chat** — rendered markdown for the note, fenced
+  code blocks for the code — so they can be read *without downloading anything*.
+  Never deliver a lesson only as attachments or as a bare "pushed, go look at the
+  repo". Committing/pushing is in addition to this, not a substitute for it.
 
 ## Hardware & environment constraints
 
@@ -102,7 +108,8 @@ tests/               ← pytest tests; each is also a usage example
 - [x] Lesson 05: causal and padding masks (`lessons/05-*.md`)
 - [x] Lesson 06: full encoder–decoder assembly (`lessons/06-*.md`)
 - [x] Lesson 07: training loop + toy copy/reverse task (loss masking, teacher forcing) (`lessons/07-*.md`)
-- [ ] Lesson 08: autoregressive generation (greedy decoding, exposure bias) — closes Phase 1
+- [x] Lesson 08: autoregressive generation (greedy decoding, exposure bias) — **Phase 1 complete** (`lessons/08-*.md`)
+- Next: Phase 2 — decoder-only GPT-2 (pre-norm, learned positions, BPE, weight tying, sampling).
 - See `docs/ROADMAP.md` for the full plan and `lessons/` for progress.
 
 ## Conventions

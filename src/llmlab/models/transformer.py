@@ -22,6 +22,7 @@ is lesson 07.
 
 from dataclasses import dataclass
 
+import torch
 from torch import Tensor, nn
 
 from llmlab.components.block import DecoderBlock, TransformerBlock
@@ -151,3 +152,74 @@ class Transformer(nn.Module):
         """
         memory = self.encode(src_ids)                 # read the source once
         return self.decode(tgt_ids, memory, src_ids)  # generate against it
+
+    @torch.no_grad()
+    def greedy_decode(
+        self,
+        src_ids: Tensor,
+        bos_id: int,
+        eos_id: int,
+        max_new_tokens: int,
+    ) -> Tensor:
+        """Autoregressive greedy generation — lesson 08's new mechanism.
+
+        `forward` computed all target predictions in ONE pass because teacher
+        forcing handed it the true prefix. At inference there is no true
+        prefix: the model must feed its OWN previous outputs back in, one token
+        at a time. That loop is what turns a next-token *scorer* into a
+        *generator*, and it is the entire difference between training and
+        deployment.
+
+        (batch, src_seq) ids  →  (batch, gen_seq) ids, each row starting with
+        BOS and (if the model learned to stop) ending at its first EOS. Rows
+        that emit EOS are frozen — every later position is forced to PAD — so a
+        batch decodes together even though sequences finish at different steps.
+
+        `bos_id`/`eos_id` are passed in rather than read from the model because
+        they are a property of the *task's* vocabulary (lesson 07's specials),
+        not of the architecture; `pad_id` IS the model's (it shaped every mask).
+
+        "Greedy" = take the argmax token at each step. It is the simplest
+        decision rule and the one that most sharply exposes exposure bias
+        (below): no sampling to jitter out of a bad prefix, no beam to hedge —
+        one committed choice per step, and every choice conditions all the
+        rest. Temperature / top-k / top-p sampling and beam search are Phase 2.
+        """
+        self.eval()  # freeze dropout/BN-like state: generation must be
+        #              deterministic, not a different sample each call
+        device = src_ids.device
+        batch = src_ids.shape[0]
+
+        # The source is fixed, so encode it EXACTLY ONCE and reuse the memory
+        # for every step — re-encoding per token would be pure waste (the whole
+        # point of the encoder/decoder split: read once, generate many).
+        memory = self.encode(src_ids)                       # (batch, src, d)
+
+        # Every sequence is born as just [BOS] — the seed the decoder conditions
+        # its first real prediction on (lesson 07: BOS gives position 0 a past).
+        gen = torch.full((batch, 1), bos_id, dtype=torch.long, device=device)
+        # Per-row latch: once a row has produced EOS it is "done" and must stop
+        # contributing new content, or it would ramble past its own stop signal.
+        finished = torch.zeros(batch, dtype=torch.bool, device=device)
+
+        for _ in range(max_new_tokens):
+            # Re-run the DECODER over the whole prefix so far. This is the naive,
+            # honest version: step t redoes the work of steps 0..t−1, so decoding
+            # n tokens costs O(n²) decoder passes. Caching the unchanged keys and
+            # values to make it O(n) is the KV cache — deliberately deferred to
+            # Phase 5 so we first feel the cost it removes.
+            logits = self.decode(gen, memory, src_ids)      # (batch, cur, vocab)
+            next_token = logits[:, -1].argmax(dim=-1)        # (batch,) greedy pick
+            #   only the LAST position's logits matter: earlier positions just
+            #   re-predict tokens we already committed to.
+
+            # A finished row emits PAD forever — freezing its content while other
+            # rows keep going. (Its logits are computed but thrown away here.)
+            next_token = next_token.masked_fill(finished, self.config.pad_id)
+            gen = torch.cat([gen, next_token[:, None]], dim=1)  # append column
+
+            finished |= next_token == eos_id
+            if bool(finished.all()):
+                break  # nothing left to generate; stop early (may end < max_new)
+
+        return gen

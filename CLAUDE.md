@@ -45,6 +45,12 @@ These rules override default coding behavior:
 - **No magic dependencies.** PyTorch, numpy, pytest, and (for data/tokenizers when
   we get there) minimal extras. We implement the interesting parts ourselves —
   including BPE tokenization when we reach GPT-2.
+- **Show the files inline, always.** The user reads on mobile, so at the end of
+  every session **display the session's lesson note (`.md`) and the new/changed
+  code (`.py`) directly in the chat** — rendered markdown for the note, fenced
+  code blocks for the code — so they can be read *without downloading anything*.
+  Never deliver a lesson only as attachments or as a bare "pushed, go look at the
+  repo". Committing/pushing is in addition to this, not a substitute for it.
 
 ## Hardware & environment constraints
 

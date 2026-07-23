@@ -109,7 +109,8 @@ tests/               ← pytest tests; each is also a usage example
 - [x] Lesson 06: full encoder–decoder assembly (`lessons/06-*.md`)
 - [x] Lesson 07: training loop + toy copy/reverse task (loss masking, teacher forcing) (`lessons/07-*.md`)
 - [x] Lesson 08: autoregressive generation (greedy decoding, exposure bias) — **Phase 1 complete** (`lessons/08-*.md`)
-- Next: Phase 2 — decoder-only GPT-2 (pre-norm, learned positions, BPE, weight tying, sampling).
+- [x] Lesson 09: decoder-only architecture — drop the encoder/cross-attn, one stream, next-token LM objective (`lessons/09-*.md`) — **Phase 2 begins**
+- Next: Phase 2 continues — pre-norm (LayerNorm inside the residual), then learned positions, BPE, weight tying/init, sampling.
 - See `docs/ROADMAP.md` for the full plan and `lessons/` for progress.
 
 ## Conventions

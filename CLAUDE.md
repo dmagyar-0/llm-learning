@@ -113,7 +113,8 @@ tests/               ← pytest tests; each is also a usage example
 - [x] Lesson 10: pre-norm — LayerNorm inside the residual branch + closing `ln_f`; the `norm_placement` knob, why deep stacks train (`lessons/10-*.md`)
 - [x] Lesson 11: learned positional embeddings — the `positional` knob (`build_positional`); buffer → parameter, the length-cap / no-extrapolation cost that motivates RoPE (`lessons/11-*.md`)
 - [x] Lesson 12: byte-level BPE tokenizer, from scratch (`src/llmlab/data/bpe.py`) — train/encode/decode, byte base = no `<unk>`, merges compound; lossless round-trip (`lessons/12-*.md`)
-- Next: Phase 2 continues — weight tying (embedding = output projection) + GPT-2 init scheme, then sampling (temperature/top-k/top-p), then the first real-text training run.
+- [x] Lesson 13: weight tying (embedding = output projection) + GPT-2 init scheme — 0.02 everywhere, residual-projection 1/√(2N) scaling (lesson 10's payoff), calibrated ln(vocab) starting loss (`lessons/13-*.md`)
+- Next: Phase 2 continues — sampling (temperature/top-k/top-p), then the first real-text training run (BPE + GPT-2 on TinyShakespeare/TinyStories).
 - See `docs/ROADMAP.md` for the full plan and `lessons/` for progress.
 
 ## Conventions

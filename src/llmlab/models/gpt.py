@@ -33,6 +33,7 @@ positions, BPE, weight tying/init, sampling — each a single component swap on 
 same skeleton. Building the skeleton first is what makes those swaps one-liners.
 """
 
+import math
 from dataclasses import dataclass
 
 import torch
@@ -68,6 +69,8 @@ class GPTConfig:
     positional: str = "learned"  # GPT-2 uses a LEARNED position table (lesson
     #                              11). Set "sinusoidal" for the 2017 fixed
     #                              formula (lesson 04) — same additive interface.
+    tie_weights: bool = True     # GPT-2 shares ONE matrix as both input
+    #                              embedding and output projection (lesson 13).
 
     @classmethod
     def tiny(cls, vocab_size: int = 32) -> "GPTConfig":
@@ -105,13 +108,18 @@ class GPT(nn.Module):
         self.config = config
         c = config
 
-        # One entry pipeline (vs. the enc–dec model's two). The ×√d_model scale
-        # (lesson 06's embedding) is unchanged; the positional component is now a
-        # config choice (lesson 11): "learned" gives GPT-2's trained position
-        # table, "sinusoidal" the 2017 fixed formula (lesson 04). Both share the
-        # same additive (batch, seq, d_model)→same-shape interface, so this line
-        # is the only place the choice lives.
-        self.embed = TokenEmbedding(c.vocab_size, c.d_model)
+        # One entry pipeline (vs. the enc–dec model's two). GPT-2 does NOT scale
+        # embeddings by √d_model (lesson 13): both the token table and the learned
+        # position table are initialized at the same small 0.02, so content and
+        # position enter the residual stream at a *balanced* scale — the ×√d_model
+        # lift (a 2017 fix for competing with fixed unit-amplitude sinusoids) would
+        # make content ~√d_model louder than position for no reason here. (The
+        # calibrated ln(vocab) starting loss comes from the small *init*, not from
+        # this flag — pre-norm's first LayerNorm renormalizes the input either way.)
+        # The positional component is a config choice (lesson 11): "learned" gives
+        # GPT-2's trained table, "sinusoidal" the 2017 formula — same additive
+        # interface either way, so this line is the only place the choice lives.
+        self.embed = TokenEmbedding(c.vocab_size, c.d_model, scale_by_sqrt_d_model=False)
         self.positional = build_positional(c.positional, c.d_model, c.max_len)
         self.embed_dropout = nn.Dropout(c.dropout)
 
@@ -139,9 +147,68 @@ class GPT(nn.Module):
         # d_model → vocab: one score per candidate next token. Raw logits (no
         # softmax): cross-entropy applies log-softmax itself, more stably, and
         # sampling (a later lesson) wants to temperature-scale before normalizing.
-        # GPT ties this weight to the embedding table (§weight-tying lesson);
-        # kept untied for now, exactly as lesson 06 left it.
-        self.lm_head = nn.Linear(c.d_model, c.vocab_size)
+        # No bias: GPT-2's head is a pure projection, and a per-token bias would
+        # have no partner in the embedding table it's about to be tied to.
+        self.lm_head = nn.Linear(c.d_model, c.vocab_size, bias=False)
+
+        # GPT-2's parameter setup (lesson 13): a principled init, then tie the
+        # head to the embedding. Order matters — init runs first (it touches
+        # every Linear and Embedding, including lm_head), and tying overwrites
+        # lm_head.weight afterwards, so the head ends up sharing the embedding
+        # table regardless of what init gave it.
+        self.apply(self._init_weights)          # Linears & embeddings: N(0, 0.02)
+        self._scale_residual_projections()      # the two per-block output projs
+        if c.tie_weights:
+            # ONE matrix, two jobs: row v is token v's input embedding AND the
+            # output direction whose dot-product with the final hidden state
+            # scores "next token = v". nn.Embedding.weight and nn.Linear.weight
+            # are both (vocab, d_model), so this assignment makes them the SAME
+            # Parameter — one tensor, one gradient, updated once per step.
+            self.lm_head.weight = self.embed.table.weight
+
+    # ------------------------------------------------------- initialization
+
+    def _init_weights(self, module: nn.Module) -> None:
+        """GPT-2's init: every weight ~ N(0, 0.02), every bias zero.
+
+        Applied via `self.apply` to every submodule. GPT-2 uses the *same* 0.02
+        for both Linear weights and embedding tables — a single small constant,
+        chosen so that even a deep pre-norm residual *sum* of these outputs
+        doesn't blow up before training begins. We deliberately re-init the token
+        embedding here to 0.02, overriding TokenEmbedding's own 1/√d_model default
+        (that default is for the *un-tied, √d_model-scaled* 2017 path; GPT-2 wants
+        the small flat scale, see the embedding note). LayerNorm is left at its
+        identity start (γ=1, β=0) — the right neutral operating point.
+        """
+        if isinstance(module, nn.Linear):
+            nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                nn.init.zeros_(module.bias)  # start every affine map as a pure linear
+        elif isinstance(module, nn.Embedding):
+            nn.init.normal_(module.weight, mean=0.0, std=0.02)  # wte and wpe alike
+
+    def _scale_residual_projections(self) -> None:
+        """Shrink the layers that WRITE into the residual stream by 1/√(2N).
+
+        This is GPT-2 §2.3's one non-obvious init rule, and it is the direct
+        answer to lesson 10's cliffhanger. Pre-norm never renormalizes the
+        highway, so the residual stream is a *sum* of every sublayer's output;
+        add 2N such outputs (N layers × {attention, FFN}) each of variance ~σ²
+        and the stream's variance grows like 2N·σ² — it swells with depth. GPT-2
+        cancels that at the source: scale the two per-block OUTPUT projections
+        (attention's W_O and the FFN's second Linear — the only layers whose
+        output lands on the highway) down by 1/√(2N), so 2N of them sum back to
+        ~σ² again. The stream enters every block at a stable scale no matter how
+        deep the model is; without it, deep stacks start training from an
+        already-inflated stream.
+
+        Note we scale ONLY these output projections — not W_Q/W_K/W_V or the FFN's
+        input Linear, whose outputs feed the next sublayer, not the residual sum.
+        """
+        std = 0.02 / math.sqrt(2 * self.config.num_layers)
+        for block in self.blocks:
+            nn.init.normal_(block.attention.w_o.weight, mean=0.0, std=std)
+            nn.init.normal_(block.ffn.w2.weight, mean=0.0, std=std)
 
     def forward(self, input_ids: Tensor) -> Tensor:
         """(batch, seq) ids → (batch, seq, vocab) next-token logits.

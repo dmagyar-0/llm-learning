@@ -48,15 +48,42 @@ class TokenEmbedding(nn.Module):
     (PyTorch's default N(0,1) would have norm √d_model with no rescue needed —
     but would break the moment we tie weights in Phase 2, so we adopt the
     tied-compatible convention now and keep the paper's forward-pass scale).
+
+    **The √d_model scale is a *sinusoidal*-era fix, and it is optional** (lesson
+    13). It exists only because the 2017 model *adds a fixed unit-amplitude
+    positional signal* — the embedding has to be lifted to compete with it. GPT-2
+    uses *learned* positions (lesson 11), initialized at the same small 0.02 as
+    the token table, so the two enter the stream *balanced* already; the √d_model
+    lift would instead make content ~√d_model louder than position for no reason.
+    Passing `scale_by_sqrt_d_model=False` selects that GPT-2 behavior. (Note it
+    barely affects the *logits*: GPT-2 is pre-norm, so the first LayerNorm
+    renormalizes the input embedding before it reaches attention — the flag sets
+    the content-vs-position *ratio*, which normalization preserves, not the
+    absolute scale. What actually calibrates a tied model's initial loss to
+    ln(vocab) is the small 0.02 *init* of the table, lesson 13.)
     """
 
-    def __init__(self, vocab_size: int, d_model: int) -> None:
+    def __init__(
+        self,
+        vocab_size: int,
+        d_model: int,
+        scale_by_sqrt_d_model: bool = True,
+    ) -> None:
         super().__init__()
         self.d_model = d_model
+        # √d_model applied in forward? True = 2017/sinusoidal convention (the
+        # default, so the enc–dec model is unchanged); False = GPT-2 (learned
+        # positions + pre-norm need no such lift). See the class docstring.
+        self.scale_by_sqrt_d_model = scale_by_sqrt_d_model
         self.table = nn.Embedding(vocab_size, d_model)
         # Linear-layer-scale init (see docstring). ~N(0, 1/d_model) per entry.
+        # A GPT-2 model re-initializes this to 0.02 in its own init pass; this
+        # default keeps the 2017 model's O(1)-embedding story self-contained.
         nn.init.normal_(self.table.weight, mean=0.0, std=1.0 / math.sqrt(d_model))
 
     def forward(self, ids: Tensor) -> Tensor:
         # ids: (batch, seq) int64 → (batch, seq, d_model) float
-        return self.table(ids) * math.sqrt(self.d_model)
+        embedded = self.table(ids)
+        if self.scale_by_sqrt_d_model:
+            embedded = embedded * math.sqrt(self.d_model)
+        return embedded

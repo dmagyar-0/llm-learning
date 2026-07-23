@@ -42,6 +42,7 @@ Status: ☐ listed → ◐ skimmed → ● studied (has a reading note)
 | ● | **Language Models are Unsupervised Multitask Learners (GPT-2)** — Radford et al. ([notes](gpt.md)) | 2019 | [OpenAI PDF](https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf) |
 | ☐ | Neural Machine Translation of Rare Words with Subword Units (BPE) — Sennrich et al. | 2015 | [1508.07909](https://arxiv.org/abs/1508.07909) |
 | ◐ | BERT: Pre-training of Deep Bidirectional Transformers — Devlin et al. ([the road not taken](gpt.md)) | 2018 | [1810.04805](https://arxiv.org/abs/1810.04805) |
+| ◐ | On Layer Normalization in the Transformer Architecture (pre-norm vs post-norm) — Xiong et al. ([lesson 10](../lessons/10-pre-norm.md)) | 2020 | [2002.04745](https://arxiv.org/abs/2002.04745) |
 | ☐ | GELU activation — Hendrycks & Gimpel | 2016 | [1606.08415](https://arxiv.org/abs/1606.08415) |
 
 ## Phase 3 — Scaling

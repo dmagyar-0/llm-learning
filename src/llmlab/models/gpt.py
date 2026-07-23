@@ -41,6 +41,7 @@ from torch import Tensor, nn
 from llmlab.components.block import TransformerBlock
 from llmlab.components.embeddings import TokenEmbedding
 from llmlab.components.masking import causal_mask, combine_masks, padding_mask
+from llmlab.components.norms import LayerNorm
 from llmlab.components.positional import SinusoidalPositionalEncoding
 
 
@@ -62,6 +63,8 @@ class GPTConfig:
     max_len: int = 1024          # GPT-2's context window; PE buffer capacity
     dropout: float = 0.0         # 0 keeps tests exact; >0 when training
     pad_id: int = 0              # which id means "padding, not content"
+    norm_placement: str = "pre"  # GPT-2 (2019) moved LN inside the residual
+    #                              branch — pre-norm. Set "post" for 2017 style.
 
     @classmethod
     def tiny(cls, vocab_size: int = 32) -> "GPTConfig":
@@ -109,10 +112,23 @@ class GPT(nn.Module):
 
         # The stack. `TransformerBlock` is lesson 03's self-attention + FFN block
         # — reused verbatim. A GPT block IS an encoder block; only the mask we
-        # pass in makes it autoregressive.
+        # pass in makes it autoregressive, and `norm_placement` chooses where its
+        # LayerNorms sit (lesson 10: GPT-2 uses "pre").
         self.blocks = nn.ModuleList(
-            TransformerBlock(c.d_model, c.num_heads, c.d_ff, c.dropout)
+            TransformerBlock(
+                c.d_model, c.num_heads, c.d_ff, c.dropout,
+                norm_placement=c.norm_placement,
+            )
             for _ in range(c.num_layers)
+        )
+
+        # Pre-norm never renormalizes the residual highway, so the stream leaves
+        # the last block un-normalized (and its magnitude has grown with depth —
+        # it's a running sum). GPT-2 closes the stack with one final LayerNorm
+        # ("ln_f") before the head; post-norm needs none (its last block already
+        # ended in an LN), so we use an identity there.
+        self.norm_final = (
+            LayerNorm(c.d_model) if c.norm_placement == "pre" else nn.Identity()
         )
 
         # d_model → vocab: one score per candidate next token. Raw logits (no
@@ -139,6 +155,7 @@ class GPT(nn.Module):
         x = self.embed_dropout(self.positional(self.embed(input_ids)))
         for block in self.blocks:
             x = block(x, mask=mask)  # same causal∧padding mask every layer
+        x = self.norm_final(x)       # ln_f (pre-norm) or identity (post-norm)
         return self.lm_head(x)       # (batch, seq, vocab)
 
     @torch.no_grad()

@@ -39,8 +39,10 @@ without ever knowing absolute positions. Phase 4's RoPE is this insight
 promoted from hope to mechanism: rotate q and k inside attention instead of
 adding codes at the bottom.
 
-Also in this file's future (per the roadmap): learned absolute embeddings
-(GPT-2, Phase 2) and RoPE (LLaMA, Phase 4).
+Lesson 11: learned absolute embeddings (GPT-2, Phase 2) — same additive combo,
+but the table becomes a trained parameter instead of a formula.
+
+Still in this file's future (per the roadmap): RoPE (LLaMA, Phase 4).
 """
 
 import math
@@ -129,3 +131,102 @@ class SinusoidalPositionalEncoding(nn.Module):
                 f"{self.max_len} — construct with a larger max_len"
             )
         return x + self.table[:seq_len]  # (batch, seq, d_model)
+
+
+class LearnedPositionalEmbedding(nn.Module):
+    """Add a LEARNED absolute position vector to each token (GPT-1/2, Phase 2).
+
+    Look back at `SinusoidalPositionalEncoding`: its whole job is to add a
+    (seq, d_model) table to the embeddings, one row per position. This module
+    does *exactly the same thing* — same additive combination, same shape, same
+    "breaks permutation-equivariance" effect — and differs in ONE place: where
+    the table comes from.
+
+        sinusoidal:  table = fixed formula (a buffer, no gradient)
+        learned:     table = nn.Parameter, filled in by gradient descent
+
+    That single swap, buffer → parameter, is the entire architectural decision
+    GPT-2 made here (§2.3, and the same `wpe` as GPT-1). Everything else about
+    how positions enter the model is unchanged — which is the point of keeping
+    these as interchangeable components: the model file does not care which one
+    it holds.
+
+    Mechanically it is a SECOND embedding table sitting beside the token table
+    (lesson 06's `TokenEmbedding`). The token table is indexed by *what* (token
+    id); this one is indexed by *where* (position 0, 1, 2, ...). GPT-2 looks up
+    both and adds them: `h = wte[ids] + wpe[positions]`. Same `nn.Embedding`
+    lookup, different question asked of it.
+
+    Two consequences follow from "it's learned, not a formula", and they are the
+    whole lesson (see the note):
+
+    1. **Hard length cap, no extrapolation.** Row `p` only exists (and only ever
+       receives gradient) for `p < max_len`. Position 1024 in a model trained to
+       1023 is a row that was never learned — undefined, not merely unseen.
+       Sinusoids are *defined* at every real position; a learned table is not.
+       This is exactly why GPT-2's context is a hard 1024, and a big reason the
+       field later moved to RoPE/ALiBi (Phase 4) to get length flexibility back.
+    2. **No built-in relative structure.** Lesson 04's sinusoids handed the model
+       the "shift = rotation" and "dot product = f(distance)" gifts for free.
+       A learned table starts as noise and must discover any relative-position
+       behavior from data. At scale it does, well enough — but nothing is given.
+
+    Unlike token embeddings we do NOT scale by √d_model here. That √d_model
+    (embeddings lesson) existed to lift fixed unit-amplitude signals to a chosen
+    volume; a learned table has no fixed amplitude to fight — gradient descent
+    sets its magnitude relative to the content itself. So it self-calibrates,
+    and we just initialize it small (GPT-2 used ~N(0, 0.02)) and let training do
+    the rest. Full init/tying discipline is its own later lesson.
+    """
+
+    def __init__(self, d_model: int, max_len: int = 1024) -> None:
+        super().__init__()
+        self.max_len = max_len
+        # One learnable row per position. This IS a parameter (contrast the
+        # sinusoidal buffer): it lives in the state_dict, moves with .to(device),
+        # and the optimizer updates it every step.
+        self.table = nn.Embedding(max_len, d_model)
+        # Small Gaussian init, GPT-2 style. Position rows start ~silent and grow
+        # only as far as the loss rewards — nothing is baked in, so we do not
+        # want them shouting over content at step 0.
+        nn.init.normal_(self.table.weight, mean=0.0, std=0.02)
+
+    def forward(self, x: Tensor) -> Tensor:  # x: (batch, seq, d_model)
+        """Return x + wpe[0:seq] — same shape, now order-aware.
+
+        `positions` is [0, 1, ..., seq-1]: absolute indices, the same for every
+        row in the batch (position depends on *where*, never on *what* or on
+        which example — identical to the sinusoidal add, just a learned lookup).
+        The (seq, d_model) result broadcasts over the batch dimension.
+        """
+        seq_len = x.shape[1]
+        if seq_len > self.max_len:
+            # Not a capacity we could cheaply grow (as with sinusoids): rows
+            # beyond max_len were never trained and carry no meaning. Fail loud
+            # rather than index out of the table or wrap silently.
+            raise ValueError(
+                f"sequence length {seq_len} exceeds learned max_len "
+                f"{self.max_len} — a learned table cannot extrapolate; it has "
+                f"no row for positions it was never trained on"
+            )
+        positions = torch.arange(seq_len, device=x.device)  # (seq,)
+        return x + self.table(positions)  # (batch, seq, d_model)
+
+
+def build_positional(kind: str, d_model: int, max_len: int) -> nn.Module:
+    """Pick a positional component by name — the config-driven assembly knob.
+
+    Both returned modules share one contract: call with (batch, seq, d_model),
+    get the same shape back with position information added, and a loud error if
+    `seq > max_len`. Because the interface is identical, the model swaps
+    "sinusoidal" for "learned" by changing a config string — no other code moves.
+    That interchangeability is the repo's whole design thesis (a paper's idea =
+    a new registered component + a config entry, never a forked model file).
+    """
+    if kind == "sinusoidal":
+        return SinusoidalPositionalEncoding(d_model, max_len=max_len)
+    if kind == "learned":
+        return LearnedPositionalEmbedding(d_model, max_len=max_len)
+    raise ValueError(
+        f"unknown positional kind {kind!r}; expected 'sinusoidal' or 'learned'"
+    )

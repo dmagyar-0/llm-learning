@@ -42,7 +42,7 @@ from llmlab.components.block import TransformerBlock
 from llmlab.components.embeddings import TokenEmbedding
 from llmlab.components.masking import causal_mask, combine_masks, padding_mask
 from llmlab.components.norms import LayerNorm
-from llmlab.components.positional import SinusoidalPositionalEncoding
+from llmlab.components.positional import build_positional
 
 
 @dataclass
@@ -65,6 +65,9 @@ class GPTConfig:
     pad_id: int = 0              # which id means "padding, not content"
     norm_placement: str = "pre"  # GPT-2 (2019) moved LN inside the residual
     #                              branch — pre-norm. Set "post" for 2017 style.
+    positional: str = "learned"  # GPT-2 uses a LEARNED position table (lesson
+    #                              11). Set "sinusoidal" for the 2017 fixed
+    #                              formula (lesson 04) — same additive interface.
 
     @classmethod
     def tiny(cls, vocab_size: int = 32) -> "GPTConfig":
@@ -103,11 +106,13 @@ class GPT(nn.Module):
         c = config
 
         # One entry pipeline (vs. the enc–dec model's two). The ×√d_model scale
-        # (lesson 06's embedding) and the zero-parameter sinusoidal PE (lesson
-        # 04) are unchanged — GPT-2 will swap this PE for a *learned* table, but
-        # that is a later, isolated lesson.
+        # (lesson 06's embedding) is unchanged; the positional component is now a
+        # config choice (lesson 11): "learned" gives GPT-2's trained position
+        # table, "sinusoidal" the 2017 fixed formula (lesson 04). Both share the
+        # same additive (batch, seq, d_model)→same-shape interface, so this line
+        # is the only place the choice lives.
         self.embed = TokenEmbedding(c.vocab_size, c.d_model)
-        self.positional = SinusoidalPositionalEncoding(c.d_model, max_len=c.max_len)
+        self.positional = build_positional(c.positional, c.d_model, c.max_len)
         self.embed_dropout = nn.Dropout(c.dropout)
 
         # The stack. `TransformerBlock` is lesson 03's self-attention + FFN block

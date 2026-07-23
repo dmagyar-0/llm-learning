@@ -22,6 +22,7 @@ gpt1|https://cdn.openai.com/research-covers/language-unsupervised/language_under
 gpt2|https://cdn.openai.com/better-language-models/language_models_are_unsupervised_multitask_learners.pdf
 bpe|https://arxiv.org/pdf/1508.07909
 bert|https://arxiv.org/pdf/1810.04805
+prenorm|https://arxiv.org/pdf/2002.04745
 gelu|https://arxiv.org/pdf/1606.08415
 gpt3|https://arxiv.org/pdf/2005.14165
 scaling-laws|https://arxiv.org/pdf/2001.08361

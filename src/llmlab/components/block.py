@@ -48,11 +48,30 @@ from llmlab.components.norms import LayerNorm
 
 
 class TransformerBlock(nn.Module):
-    """One post-norm encoder-style block (Vaswani et al. 2017).
+    """One encoder-style block: self-attention + FFN, with a norm-placement knob.
 
-    dropout: the paper applies dropout to each sublayer's output *before* the
-    residual addition (§5.4, p_drop=0.1). Default 0.0 here — it only matters
-    once we train (lesson 06); tests want determinism.
+    Same two sublayers as the 2017 paper; what's configurable (lesson 10) is
+    WHERE the LayerNorm sits relative to the residual add:
+
+        post-norm (Vaswani 2017):   x = LN(x + Sublayer(x))
+        pre-norm  (GPT-2, 2019):    x = x + Sublayer(LN(x))
+
+    Post-norm puts LN *on the highway* — every residual add is renormalized, so
+    the identity path of lesson 03 passes through L LayerNorms on its way back.
+    Pre-norm puts LN *inside the branch* — the highway is a pure running sum of
+    sublayer outputs, and the gradient gets an unattenuated identity path from
+    the loss to every layer (the derivation is in lessons/10). That one change
+    is a large part of why deep transformers train without heavy LR warmup, so
+    every model after 2019 defaults to it; we keep post-norm as the faithful
+    2017 default and let assembled models (GPT) choose.
+
+    Note pre-norm leaves the FINAL output un-normalized (the highway is never
+    renormed), so a pre-norm *model* must add one closing LayerNorm before its
+    head — that lives in the model (GPT.norm_final), not here.
+
+    dropout: applied to each sublayer's output before the residual add
+    (§5.4, p_drop=0.1). Default 0.0 — matters only when training; tests want
+    determinism.
     """
 
     def __init__(
@@ -61,12 +80,19 @@ class TransformerBlock(nn.Module):
         num_heads: int,
         d_ff: int | None = None,
         dropout: float = 0.0,
+        norm_placement: str = "post",
     ) -> None:
         super().__init__()
+        if norm_placement not in ("post", "pre"):
+            raise ValueError(
+                f"norm_placement must be 'post' or 'pre', got {norm_placement!r}"
+            )
+        self.norm_placement = norm_placement
         self.attention = MultiHeadAttention(d_model, num_heads)
         self.ffn = PositionwiseFFN(d_model, d_ff)
         # One LayerNorm per sublayer, each with its own γ/β — the stream may
         # need different operating points after "gather" vs. after "think".
+        # (Same two norms in both placements; only where we apply them moves.)
         self.norm_attn = LayerNorm(d_model)
         self.norm_ffn = LayerNorm(d_model)
         self.dropout = nn.Dropout(dropout)
@@ -77,13 +103,18 @@ class TransformerBlock(nn.Module):
         Shape in == shape out is the whole point: blocks stack like Lego,
         and depth becomes a pure hyperparameter (N=6 in the paper).
         """
-        # Sublayer 1 — gather: each token reads from the others.
-        attn_out, _ = self.attention(x, mask=mask)     # (batch, seq, d_model)
-        x = self.norm_attn(x + self.dropout(attn_out))  # add THEN norm: post-norm
-
-        # Sublayer 2 — think: each token processes what it now holds.
-        ffn_out = self.ffn(x)                           # (batch, seq, d_model)
-        x = self.norm_ffn(x + self.dropout(ffn_out))
+        if self.norm_placement == "post":
+            # Add THEN norm — the LN sits on the residual highway.
+            attn_out, _ = self.attention(x, mask=mask)      # gather
+            x = self.norm_attn(x + self.dropout(attn_out))
+            ffn_out = self.ffn(x)                           # think
+            x = self.norm_ffn(x + self.dropout(ffn_out))
+        else:  # "pre": norm THEN sublayer — the LN sits inside the branch, and
+            #        the raw x is added back untouched, keeping the highway clean.
+            attn_out, _ = self.attention(self.norm_attn(x), mask=mask)  # gather
+            x = x + self.dropout(attn_out)
+            ffn_out = self.ffn(self.norm_ffn(x))            # think
+            x = x + self.dropout(ffn_out)
 
         return x
 
